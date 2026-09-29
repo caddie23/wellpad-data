@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "latest_db_version": 20260901,
-  "release_date": "2026-09-24",
+  "release_date": "2026-09-29",
   "total_wells": 538629,
   "delta_url": "https://raw.githubusercontent.com/caddie23/wellpad-data/main/delta_latest.json.gz",
-  "delta_from_version": 20260801,
-  "delta_sha256": "",
-  "delta_size_bytes": 0
+  "delta_from_version": 20260901,
+  "delta_sha256": "82812e3aceb0cff4cda267c1a642be02689e2c40b939f7064205008927eacd0c",
+  "delta_size_bytes": 141
 }
