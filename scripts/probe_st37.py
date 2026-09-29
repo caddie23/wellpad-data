@@ -23,7 +23,7 @@ def probe_remote(url=AER_URL):
     req = urllib.request.Request(
         url,
         method="HEAD",
-        headers={"User-Agent": "WellPadBot/1.0 (https://github.com/caddie23/WP)"}
+        headers={"User-Agent": "DataSync/1.0"}
     )
     try:
         with urllib.request.urlopen(req, timeout=20) as resp:
