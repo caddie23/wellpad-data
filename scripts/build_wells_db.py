@@ -76,19 +76,31 @@ def download_st37_zip(url=AER_URL, dest_dir=None):
     return dest_dir
 
 
+def find_st37_file(source_dir, pattern):
+    for root, _, files in os.walk(source_dir):
+        for f in files:
+            if pattern.lower() in f.lower() and f.endswith(".xlsx"):
+                return os.path.join(root, f)
+    return None
+
+
 def build_database(source_dir, output_db, limit=None, do_gzip=True):
     start_time = datetime.now()
     print(f"[{start_time.isoformat()}] Starting AER ST37 database build...")
     print(f"Source Directory: {source_dir}")
     print(f"Output Database:  {output_db}")
 
-    sh_path = os.path.join(source_dir, "ST37_SH.xlsx")
-    bh_path = os.path.join(source_dir, "ST37_BH.xlsx")
-    ps_path = os.path.join(source_dir, "ST37_ Production_Strings.xlsx")
+    sh_path = find_st37_file(source_dir, "ST37_SH")
+    bh_path = find_st37_file(source_dir, "ST37_BH")
+    ps_path = find_st37_file(source_dir, "Production_Strings")
 
-    for p in [sh_path, bh_path, ps_path]:
-        if not os.path.exists(p):
-            raise FileNotFoundError(f"Missing required ST37 file: {p}")
+    for name, p in [("ST37_SH", sh_path), ("ST37_BH", bh_path), ("ST37_ Production_Strings", ps_path)]:
+        if not p or not os.path.exists(p):
+            raise FileNotFoundError(f"Missing required ST37 file ({name}) in: {source_dir}")
+
+    print(f"Found Surface Holes:       {sh_path}")
+    print(f"Found Bottom Holes:        {bh_path}")
+    print(f"Found Production Strings:  {ps_path}")
 
     # 1. Process Surface Holes
     print("\n[Step 1/4] Reading Surface Holes (ST37_SH.xlsx)...")
