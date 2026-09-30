@@ -56,7 +56,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mkdir -p /tmp/st37_work
+          set -euo pipefail
+          mkdir -p /tmp/st37_work deltas
+
+          PREV_VERSION=$(python -c "import json; print(json.load(open('manifest.json'))['latest_db_version'])")
+          NEW_VERSION=$(date +%Y%m01)
+          NEW_DATE=$(date +%Y-%m-%d)
+          echo "Previous registry version: ${PREV_VERSION}, new version: ${NEW_VERSION}"
+
           echo "Building new SQLite database from AER ST37 Excel..."
           python scripts/build_wells_db.py \
             --remote \
@@ -67,52 +74,50 @@ jobs:
           echo "Total wells indexed: ${WELL_COUNT}"
 
           # Compress new database
-          gzip -c -9 /tmp/st37_work/wellpad_wells_new.db > /tmp/st37_work/wellpad_wells.db.gzip
+          gzip -c -9 -n /tmp/st37_work/wellpad_wells_new.db > /tmp/st37_work/wellpad_wells.db.gzip
 
-          # Download previous baseline release asset to compute micro-delta
-          echo "Attempting to download previous baseline database from GitHub Releases..."
-          gh release download --pattern "wellpad_wells.db.gzip" --repo caddie23/wellpad-data --dir /tmp/st37_work/old_release/ || true
-
-          if [ -f "/tmp/st37_work/old_release/wellpad_wells.db.gzip" ]; then
-            echo "Extracting previous baseline database for delta calculation..."
+          # The delta must be computed against exactly the database apps on PREV_VERSION have,
+          # i.e. the v${PREV_VERSION} release asset
+          DELTA_ARGS=""
+          if [ "${NEW_VERSION}" -gt "${PREV_VERSION}" ] && \
+             gh release download "v${PREV_VERSION}" --pattern "wellpad_wells.db.gzip" \
+               --repo caddie23/wellpad-data --dir /tmp/st37_work/old_release/; then
+            echo "Computing delta ${PREV_VERSION} -> ${NEW_VERSION}..."
             gunzip -c /tmp/st37_work/old_release/wellpad_wells.db.gzip > /tmp/st37_work/wellpad_wells_old.db
+            DELTA_PATH="deltas/delta_${PREV_VERSION}_${NEW_VERSION}.json.gz"
             python scripts/generate_delta.py \
               --old-db /tmp/st37_work/wellpad_wells_old.db \
               --new-db /tmp/st37_work/wellpad_wells_new.db \
-              --output delta_latest.json.gz
+              --output "${DELTA_PATH}"
+            # Legacy path read by app builds before manifest schema 2
+            cp "${DELTA_PATH}" delta_latest.json.gz
+            DELTA_ARGS="--delta ${DELTA_PATH} --delta-from ${PREV_VERSION}"
           else
-            echo "Notice: No previous release asset found. Creating empty delta placeholder."
-            echo "{}" | gzip > delta_latest.json.gz
+            echo "Notice: no delta for this run (same version rebuild or no v${PREV_VERSION} release). Apps will use the full database."
           fi
 
-          # Update manifest.json with release metadata
-          NEW_DATE=$(date +%Y-%m-%d)
-          NEW_VERSION=$(date +%Y%m01)
-          DELTA_SIZE=$(wc -c < delta_latest.json.gz)
-          DELTA_SHA=$(sha256sum delta_latest.json.gz | cut -d ' ' -f 1)
+          # Publish the full database first, so the manifest never points at a missing file
+          if gh release view "v${NEW_VERSION}" --repo caddie23/wellpad-data > /dev/null 2>&1; then
+            gh release upload "v${NEW_VERSION}" /tmp/st37_work/wellpad_wells.db.gzip \
+              --clobber --repo caddie23/wellpad-data
+          else
+            gh release create "v${NEW_VERSION}" /tmp/st37_work/wellpad_wells.db.gzip \
+              --title "AER ST37 Well Database v${NEW_VERSION}" \
+              --notes "Automated monthly release of AER ST37 Well Registry (${WELL_COUNT} wells)." \
+              --repo caddie23/wellpad-data
+          fi
 
-          cat <<EOF > manifest.json
-          {
-            "schema_version": 1,
-            "latest_db_version": ${NEW_VERSION},
-            "release_date": "${NEW_DATE}",
-            "total_wells": ${WELL_COUNT},
-            "delta_url": "https://raw.githubusercontent.com/caddie23/wellpad-data/main/delta_latest.json.gz",
-            "delta_from_version": 20260901,
-            "delta_sha256": "${DELTA_SHA}",
-            "delta_size_bytes": ${DELTA_SIZE}
-          }
-          EOF
+          # Update manifest.json (appends the delta to the chain and points full_db at the release)
+          python scripts/update_manifest.py \
+            --new-version "${NEW_VERSION}" \
+            --release-date "${NEW_DATE}" \
+            --total-wells "${WELL_COUNT}" \
+            --full-db /tmp/st37_work/wellpad_wells.db.gzip \
+            ${DELTA_ARGS}
 
-          # Commit & Push manifest + delta to main branch
+          # Commit & Push manifest + deltas to main branch
           git config --global user.name "WellPad Sync Bot"
           git config --global user.email "bot@wellpad.ca"
-          git add manifest.json delta_latest.json.gz scripts/st37_probe_state.json scripts/st37_release_history.json
+          git add manifest.json delta_latest.json.gz deltas scripts/st37_probe_state.json scripts/st37_release_history.json
           git commit -m "chore(wells): update AER ST37 registry to ${NEW_VERSION} [skip ci]" || echo "No changes to commit"
           git push origin main
-
-          # Create GitHub Release with full database for archival and future delta baselines
-          gh release create "v${NEW_VERSION}" /tmp/st37_work/wellpad_wells.db.gzip \
-            --title "AER ST37 Well Database v${NEW_VERSION}" \
-            --notes "Automated monthly release of AER ST37 Well Registry (${WELL_COUNT} wells). Delta published to delta_latest.json.gz." \
-            --repo caddie23/wellpad-data || echo "Release already exists or skipped"

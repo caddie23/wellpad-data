@@ -45,19 +45,22 @@ def compare_databases(old_db_path, new_db_path, output_patch_path):
     inserts = [dict(zip(columns, row)) for row in cursor.fetchall()]
     print(f"  Found {len(inserts):,} new wells.")
 
-    # 2. Detect Updates (Wells present in both, but status, licensee, or fluid changed)
+    # 2. Detect Updates (Wells present in both, but any shipped column changed)
+    # IS NOT (not !=) so a change to or from NULL counts: in SQL, NULL != 'x' is NULL, not true.
     print("Computing modified wellbores (UPDATES)...")
     cursor.execute("""
         SELECT n.uwi, n.surface_lsd_key, n.well_name, n.licensee, n.licence_no,
                n.status_mode, n.status_fluid, n.is_disposal, n.is_active
         FROM lease_wells n
         JOIN old_db.lease_wells o ON n.uwi = o.uwi
-        WHERE n.status_mode != o.status_mode
-           OR n.status_fluid != o.status_fluid
-           OR n.is_disposal != o.is_disposal
-           OR n.is_active != o.is_active
-           OR n.licensee != o.licensee
-           OR n.well_name != o.well_name;
+        WHERE n.status_mode IS NOT o.status_mode
+           OR n.status_fluid IS NOT o.status_fluid
+           OR n.is_disposal IS NOT o.is_disposal
+           OR n.is_active IS NOT o.is_active
+           OR n.licensee IS NOT o.licensee
+           OR n.well_name IS NOT o.well_name
+           OR n.licence_no IS NOT o.licence_no
+           OR n.surface_lsd_key IS NOT o.surface_lsd_key;
     """)
     updates = [dict(zip(columns, row)) for row in cursor.fetchall()]
     print(f"  Found {len(updates):,} updated wells.")
