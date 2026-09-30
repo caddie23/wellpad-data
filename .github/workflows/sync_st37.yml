@@ -60,7 +60,8 @@ jobs:
           mkdir -p /tmp/st37_work deltas
 
           PREV_VERSION=$(python -c "import json; print(json.load(open('manifest.json'))['latest_db_version'])")
-          NEW_VERSION=$(date +%Y%m01)
+          # Version comes from AER's file date; same-month re-issues get PREV+1 (see script)
+          NEW_VERSION=$(python scripts/next_version.py)
           NEW_DATE=$(date +%Y-%m-%d)
           echo "Previous registry version: ${PREV_VERSION}, new version: ${NEW_VERSION}"
 
@@ -79,8 +80,7 @@ jobs:
           # The delta must be computed against exactly the database apps on PREV_VERSION have,
           # i.e. the v${PREV_VERSION} release asset
           DELTA_ARGS=""
-          if [ "${NEW_VERSION}" -gt "${PREV_VERSION}" ] && \
-             gh release download "v${PREV_VERSION}" --pattern "wellpad_wells.db.gzip" \
+          if gh release download "v${PREV_VERSION}" --pattern "wellpad_wells.db.gzip" \
                --repo caddie23/wellpad-data --dir /tmp/st37_work/old_release/; then
             echo "Computing delta ${PREV_VERSION} -> ${NEW_VERSION}..."
             gunzip -c /tmp/st37_work/old_release/wellpad_wells.db.gzip > /tmp/st37_work/wellpad_wells_old.db
@@ -93,7 +93,7 @@ jobs:
             cp "${DELTA_PATH}" delta_latest.json.gz
             DELTA_ARGS="--delta ${DELTA_PATH} --delta-from ${PREV_VERSION}"
           else
-            echo "Notice: no delta for this run (same version rebuild or no v${PREV_VERSION} release). Apps will use the full database."
+            echo "Notice: no v${PREV_VERSION} release to diff against. Apps will use the full database."
           fi
 
           # Publish the full database first, so the manifest never points at a missing file
