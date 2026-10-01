@@ -1,17 +1,25 @@
 {
   "schema_version": 2,
-  "latest_db_version": 20260901,
-  "release_date": "2026-09-29",
-  "total_wells": 538629,
-  "deltas": [],
+  "latest_db_version": 20261001,
+  "release_date": "2026-10-01",
+  "total_wells": 539681,
+  "deltas": [
+    {
+      "from": 20260901,
+      "to": 20261001,
+      "url": "https://raw.githubusercontent.com/caddie23/wellpad-data/main/deltas/delta_20260901_20261001.json.gz",
+      "sha256": "f595151ba5f8ae651cfb22746567271dc2585f4a035cb0c7e05f12510a799217",
+      "size_bytes": 1153595
+    }
+  ],
   "full_db": {
-    "version": 20260901,
-    "url": "https://github.com/caddie23/wellpad-data/releases/download/v20260901/wellpad_wells.db.gzip",
-    "sha256": "eba24a0e243bf17ec7ada5ee66a8460ac926a0103ebf3ba506f9a06e1bee2f21",
-    "size_bytes": 23991498
+    "version": 20261001,
+    "url": "https://github.com/caddie23/wellpad-data/releases/download/v20261001/wellpad_wells.db.gzip",
+    "sha256": "c597e5fea7fff889843ba544baafc4268aaa8a78c7296f3012f88d91cb556b73",
+    "size_bytes": 24018358
   },
   "delta_url": "https://raw.githubusercontent.com/caddie23/wellpad-data/main/delta_latest.json.gz",
   "delta_from_version": 20260901,
-  "delta_sha256": "82812e3aceb0cff4cda267c1a642be02689e2c40b939f7064205008927eacd0c",
-  "delta_size_bytes": 141
+  "delta_sha256": "f595151ba5f8ae651cfb22746567271dc2585f4a035cb0c7e05f12510a799217",
+  "delta_size_bytes": 1153595
 }
